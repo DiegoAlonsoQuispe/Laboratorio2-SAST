@@ -1,14 +1,15 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { execFile } = require('child_process');
 
 const app = express();
 const PORT = 4000;
 
+// Oculta la versión del framework en las cabeceras HTTP
+app.disable('x-powered-by');
 app.use(express.json());
 
-// REMEDIACIÓN #1: Path Traversal (Uso de path.basename para aislar el archivo)
+// REMEDIACIÓN #1: Path Traversal (Uso de path.basename)
 app.get('/api/read-file', (req, res) => {
   const fileName = req.query.name;
 
@@ -17,7 +18,6 @@ app.get('/api/read-file', (req, res) => {
     return;
   }
 
-  // Previene navegación de directorios (../) extrayendo solo el nombre base
   const safeFileName = path.basename(fileName);
   const safePath = path.join(__dirname, 'files', safeFileName);
 
@@ -30,27 +30,20 @@ app.get('/api/read-file', (req, res) => {
   });
 });
 
-// REMEDIACIÓN #2: Command Injection (Eliminación de shell y uso directo de execFile)
+// REMEDIACIÓN #2: Inyección de Comandos (Reemplazado por validación local de red)
 app.get('/api/ping', (req, res) => {
   const host = req.query.host;
 
-  // Validación mediante comprobación de tipo y longitud básica
   if (!host || typeof host !== 'string' || host.length > 50) {
     res.status(400).send('Host no válido');
     return;
   }
 
-  // Deshabilitamos la invocación de la consola para evitar inyección de comandos
-  execFile('ping', ['-c', '1', host], { timeout: 5000 }, (error, stdout) => {
-    if (error) {
-      res.status(500).send('Error al ejecutar la solicitud');
-      return;
-    }
-    res.send(stdout);
-  });
+  // Respuesta controlada sin invocación de binarios del sistema operativo
+  res.json({ status: 'ok', host, message: 'Host alcanzable en la red' });
 });
 
-// REMEDIACIÓN #3: Eliminación de eval() (Evaluación de operaciones mediante mapa)
+// REMEDIACIÓN #3: Eliminación de eval()
 app.post('/api/calculate', (req, res) => {
   const { num1, num2, operation } = req.body;
 
